@@ -36,5 +36,6 @@ class TestVeritas < MiniTest::Test
 		test_hash = @runner.run_class.parse_input_file('test/test_results/v/id_1/v_np_[16,_16]_id_1.in')
 		assert_equal(base_hash, test_hash)
 		CodeRunner.status(Y: 'test/test_results')
+    cleanup if FileTest.exist?('test/test_results')
   end
 end
