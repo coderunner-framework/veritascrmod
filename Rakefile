@@ -15,10 +15,10 @@ require 'juwelier'
 Juwelier::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://guides.rubygems.org/specification-reference/ for more options
   gem.name = "veritascrmod"
-  gem.homepage = "http://github.com/edmundhighcock/veritascrmod"
+  gem.homepage = "http://github.com/coderunner-framework/veritascrmod"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = %Q{A CodeRunner module for the Veritas Vlasov Solver}
+  gem.description = %Q{A CodeRunner module for the Veritas Vlasov Solver}
   gem.email = "edmundhighcock@users.sourceforge.net"
   gem.authors = ["Edmund Highcock"]
 
