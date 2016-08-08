@@ -23,7 +23,7 @@ class CodeRunner
 
     @code_long="Veritas Vlasov-Maxwell Solver"
 
-    @run_info=[:time, :is_a_restart, :restart_id]
+    @run_info=[:time, :is_a_restart, :restart_id, :percent_complete]
 
     @uses_mpi = true
 
@@ -41,12 +41,12 @@ class CodeRunner
       name = @run_name
       name += " (res: #@restart_id)" if @restart_id
       name += " real_id: #@real_id" if @real_id
-      #beginning = sprintf("%2d:%d %-60s %1s:%2.1f(%s) %3s%1s",  @id, @job_no, name, @status.to_s[0,1],  @run_time.to_f / 60.0, @nprocs.to_s, percent_complete, "%")
+      beginning = sprintf("%2d:%d %-60s %1s:%2.1f(%s) %3s%1s",  @id, @job_no, name, @status.to_s[0,1],  @run_time.to_f / 60.0, @nprocs.to_s, percent_complete.to_f, "%")
       #if ctd and fusionQ
         #beginning += sprintf("Q:%f, Pfusion:%f MW, Ti0:%f keV, Te0:%f keV, n0:%f x10^20", fusionQ, pfus, ti0, te0, ne0)
       #end
       #beginning += "  ---#{@comment}" if @comment
-      #beginning
+      beginning
     end
 
     #def self.load(dir, runner)
@@ -67,6 +67,7 @@ class CodeRunner
     end
     #  This is a hook which gets called just before submitting a simulation. It sets up the folder and generates any necessary input files.
     def generate_input_file
+        FileUtils.makedirs("output/rectangleData")
         #@run_name += "_t"
         if @restart_id
           @runner.run_list[@restart_id].restart(self)

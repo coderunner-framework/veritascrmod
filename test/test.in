@@ -1,0 +1,10 @@
+&time
+  filewrite_freq = 10
+/
+
+&grid
+  nx = 16
+/
+
+&particles
+/ 
