@@ -22,6 +22,45 @@
         [{:test=>"kind_of? Numeric",
           :explanation=>
            "This variable must be a floating point number (an integer is also acceptable: it will be converted into a floating point number)."}],
+       :type=>:Float},
+     :runtime=>
+      {:should_include=>"true",
+       :description=>nil,
+       :help=>nil,
+       :code_name=>:runtime,
+       :must_pass=>
+        [{:test=>"kind_of? Numeric",
+          :explanation=>
+           "This variable must be a floating point number (an integer is also acceptable: it will be converted into a floating point number)."}],
+       :type=>:Float},
+     :stepfreq=>
+      {:should_include=>"true",
+       :description=>nil,
+       :help=>nil,
+       :code_name=>:stepfreq,
+       :must_pass=>
+        [{:test=>"kind_of? Numeric",
+          :explanation=>
+           "This variable must be a floating point number (an integer is also acceptable: it will be converted into a floating point number)."}],
+       :type=>:Float},
+     :nregrid=>
+      {:should_include=>"true",
+       :description=>nil,
+       :help=>nil,
+       :code_name=>:nregrid,
+       :must_pass=>
+        [{:test=>"kind_of? Integer",
+          :explanation=>"This variable must be an integer."}],
+       :type=>:Integer},
+     :tfieldsonly=>
+      {:should_include=>"true",
+       :description=>nil,
+       :help=>nil,
+       :code_name=>:tfieldsonly,
+       :must_pass=>
+        [{:test=>"kind_of? Numeric",
+          :explanation=>
+           "This variable must be a floating point number (an integer is also acceptable: it will be converted into a floating point number)."}],
        :type=>:Float}}},
  :particles=>
   {:description=>"",
