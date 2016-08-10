@@ -168,6 +168,85 @@ EOF1
       '.in'
     end
 
+ # Override CodeRunner for 0-based# Override CodeRunner for 0-based# Override CodeRunner for 0-based  
+def input_file_text
+	text = input_file_header
+	rcp.namelists.each do |namelist, hash|
+		next if hash[:should_include].kind_of? String and not eval(hash[:should_include])
+		if en = hash[:enumerator] # Single = is deliberate!
+			next unless send(en[:name])
+			send(en[:name]).times do |i|
+				next unless hash[:variables].keys.inject(false){|b, v| b or !send(v+"_#{i+0}".to_sym).nil?} # i.e. at least one variable must be non-nil 
+				text << namelist_text(namelist, i+0)
+			end
+		else
+			next unless hash[:variables].keys.inject(false){|b, v| b or !send(v).nil?} # i.e. at least one variable must be non-nil 
+			text << namelist_text(namelist)
+		end
+			
+			
+	end
+	text
+end
+def namelist_text(namelist, enum = nil)
+	hash = rcp.namelists[namelist]
+	text = ""
+	ext = enum ? "_#{enum}" : ""
+	text << "!#{'='*30}\n!#{hash[:description]} #{enum} \n!#{'='*30}\n" if hash[:description]
+	text << "&#{namelist}#{ext}\n"
+	hash[:variables].each do |var, var_hash|
+		code_var = (var_hash[:code_name] or var)
+		cr_var = var+ext.to_sym 
+		value = send(cr_var)
+		if send(cr_var) and (not var_hash[:should_include] or  eval(var_hash[:should_include]))
+			if value.kind_of? Array
+				value.each_with_index do |v, i|
+					output = formatted_variable_output(v)
+					text << " #{code_var}(#{i+0}) = #{output} #{var_hash[:description] ? "! #{var_hash[:description]}": ""}\n"
+				end
+			else
+				output = formatted_variable_output(value)
+				text << " #{code_var} = #{output} #{var_hash[:description] ? "! #{var_hash[:description]}": ""}\n"
+			end
+		elsif rcp.namelists_to_print_not_specified? and rcp.namelists_to_print_not_specified.include?(namelist) 
+			text << "  ! #{code_var} not specified --- #{var_hash[:description]}\n"
+		end
+	end
+	text << "/\n\n"
+	text
+end
+	@variables = @namelists.inject([]) do |arr, (namelist, namelist_hash)|
+		if en = namelist_hash[:enumerator]
+			en[:estimated_value].times do |i|
+				namelist_hash[:variables].each{|var, var_hash| arr.push var + "_#{i+0}".to_sym}
+			end
+		else
+			namelist_hash[:variables].each{|var, var_hash| arr.push var}
+		end
+		arr
+	end
+def self.defaults_file_text_from_input_file(input_file)
+	string = defaults_file_header
+
+	hash = parse_input_file(input_file)
+	#pp hash; exit
+	#ep ['class', self.to_s, 'namelists', rcp.namelists.keys, 'code_long', rcp.code_long, 'namelist_hashes', rcp.namelists.values.map{|v| v.class}]
+	rcp.namelists.each do |namelist, namelist_hash|
+ 		#ep namelist
+		if namelist_hash[:enumerator]  # ie. This is an indexed namelist
+      #p namelist_hash[:enumerator]
+			enumerator = namelist_hash[:enumerator][:name]
+			enum_hash = hash.find{|nml, nmlh| nmlh[enumerator]}
+			next unless enum_hash
+			#pp enum_hash
+			enum = enum_hash[1][enumerator]
+			enum.times{|i| string << namelist_defaults_text(hash, namelist, namelist_hash, i+0)}
+		else
+			string << namelist_defaults_text(hash, namelist, namelist_hash)
+		end
+	end
+	string
+end
   end
 end
 

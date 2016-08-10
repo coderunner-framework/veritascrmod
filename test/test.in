@@ -7,4 +7,13 @@
 /
 
 &particles
+  npart = 2
+/
+
+&particle_0
+  np = 16
+/ 
+
+&particle_1
+  np = 16
 / 

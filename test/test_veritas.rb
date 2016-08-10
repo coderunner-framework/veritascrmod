@@ -30,12 +30,12 @@ class TestVeritas < MiniTest::Test
     @runner.run_class.make_new_defaults_file("rake_test", "test/test.in")
     FileUtils.mv('rake_test_defaults.rb', 'test/test_results')
 		if ENV['VERITAS_EXEC']
-      CodeRunner.submit(Y: 'test/test_results', T: false, D: 'rake_test', n: '1', X: ENV['VERITAS_EXEC'], p: '{np: [16,16]}')
+      CodeRunner.submit(Y: 'test/test_results', T: false, D: 'rake_test', n: '1', X: ENV['VERITAS_EXEC'], p: '{np_0: 16, np_1: 16}')
     end
 		base_hash = @runner.run_class.parse_input_file('test/test.in')
-		test_hash = @runner.run_class.parse_input_file('test/test_results/v/id_1/v_np_[16,_16]_id_1.in')
+		test_hash = @runner.run_class.parse_input_file('test/test_results/v/id_1/v_np_0_16_np_1_16_id_1.in')
 		assert_equal(base_hash, test_hash)
 		CodeRunner.status(Y: 'test/test_results')
-    cleanup if FileTest.exist?('test/test_results')
+    #cleanup if FileTest.exist?('test/test_results')
   end
 end
