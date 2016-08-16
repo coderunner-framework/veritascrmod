@@ -3,6 +3,7 @@ source "https://rubygems.org"
 # Example:
 #   gem "activesupport", ">= 2.3.5"
     gem "coderunner", ">=1.0.0"
+    gem "ruby-netcdf", ">= 0.7.1"
     gem "narray"
 
 # Add dependencies to develop your gem here.

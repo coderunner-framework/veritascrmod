@@ -1,9 +1,12 @@
 &time
   filewrite_freq = 10
+  runtime = 50.0
 /
 
 &grid
   nx = 16
+  lfinest = 3
+  r = 2
 /
 
 &particles

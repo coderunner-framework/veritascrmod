@@ -9,6 +9,8 @@ class CodeRunner
     # Where this file is
     @code_module_folder = File.dirname(File.expand_path(__FILE__)) # i.e. the directory this file is in
 
+    require 'veritascrmod/read_netcdf.rb'
+
     # Use the Run::FortranNamelist tools to process the variable database
     setup_namelists(@code_module_folder)
 
@@ -42,6 +44,7 @@ class CodeRunner
       name += " (res: #@restart_id)" if @restart_id
       name += " real_id: #@real_id" if @real_id
       beginning = sprintf("%2d:%d %-60s %1s:%2.1f(%s) %3s%1s",  @id, @job_no, name, @status.to_s[0,1],  @run_time.to_f / 60.0, @nprocs.to_s, percent_complete.to_f, "%")
+      beginning += " n:#@nlines " if @nlines
       #if ctd and fusionQ
         #beginning += sprintf("Q:%f, Pfusion:%f MW, Ti0:%f keV, Te0:%f keV, n0:%f x10^20", fusionQ, pfus, ti0, te0, ne0)
       #end
@@ -112,6 +115,10 @@ class CodeRunner
     #
     def process_directory_code_specific
       get_status
+      if FileTest.exist? 'output/time.txt'
+        @nlines = File.read('output/time.txt').split("\n").size
+      end
+
     end
 
     def get_status
@@ -168,6 +175,206 @@ EOF1
       '.in'
     end
 
+  def self.modify_job_script(runner, runs_in, script)
+    if CODE_OPTIONS[:veritas] and CODE_OPTIONS[:veritas][:list]
+      if (list_size = CODE_OPTIONS[:veritas][:list]).kind_of? Integer
+        raise "The total number of runs must be a multiple of the list size!" unless runs_in.size % list_size == 0
+        pieces = runs_in.pieces(runs_in.size/list_size)
+      else
+        pieces = [runs_in]
+      end
+      script = ""
+      pieces.each do |runs|
+        #ep 'there is a list'
+        FileUtils.makedirs('job_lists')
+        jid = "#{runs[0].id}-#{runs[-1].id}"
+        list_file = "../job_lists/veritas_list_#{jid}.list"
+        Dir.chdir('job_chain_files') do
+          File.open(list_file,'w') do |file|
+            file.puts runs.size
+            file.puts runs.map{|r| "../#{r.relative_directory}/\n#{r.run_name}"}.join("\n")
+          end
+        end
+        raise "runs must all have the same nprocs" unless runs.map{|r| r.nprocs}.uniq.size == 1
+        runs.each do |r|
+          # Make sure the restart file name includes the relative directory for
+          # list runs
+          #reldir = r.relative_directory
+          #puts rdir[0...reldir.size] == reldir, rdir[0...reldir.size], reldir
+          #raise ""
+          Dir.chdir(r.directory){r.write_input_file}
+        end
+        #np = runs[0].nprocs.split('x').map{|n| n.to_i}
+        #np[0] *= runs.size
+        #nprocs = np.map{|n| n.to_s}.join('x')
+        #@runner.nprocs = nprocs
+        @runner.nprocs = runs[0].nprocs
+        ls = ListSubmitter.new(@runner, @runner.nprocs, list_file, jid)
+        script <<  'cd job_chain_files; '
+        script << ls.run_command
+      end
+    end
+    return script
+  end
+
+  class ListSubmitter
+    include CodeRunner::SYSTEM_MODULE
+    @uses_mpi = true
+    attr_reader :executable_location, :executable_name, :parameter_string
+    attr_reader :job_identifier
+    def initialize(runner, nprocs, list_file, jid)
+      @executable_location = runner.executable_location
+      @executable_name = runner.executable_name
+      @parameter_string = list_file
+      @job_identifier = jid
+      @nprocs = nprocs
+    end
+    def rcp
+      self.class.rcp
+    end
+    def self.rcp
+      @rcp ||= CodeRunner::Run::RunClassPropertyFetcher.new(self)
+    end
+
+  end #class ListSubmitter
+def graphkit(name, options)
+  if name =~ /^nc/
+    smart_graphkit(options.absorb(graphkit_name: name))
+  else
+    send((name + '_graphkit').to_sym, options)
+  end
+end
+def potential_graphkit(options)
+  real_space_graphkit(signal: 'phi')
+end
+def asquared_graphkit(options)
+  real_space_graphkit(signal: 'asquared')
+end
+def asquared2d_graphkit(options)
+  real_space_2d_graphkit(options.dup.absorb(signal: 'asquared'))
+end
+def openncfile
+  require 'numru/netcdf'
+  res = nil
+  file = NumRu::NetCDF.open("#@directory/#@run_name.nc")
+  res = yield(file)
+  file.close
+  res
+end
+def real_space_graphkit(options)
+  Dir.chdir(@directory) do
+    mat = openncfile{|f| f.var(options[:signal]).get} 
+    shape = mat.shape
+    p 'shape', mat.shape
+    x = shape[0].times.to_a
+    t = shape[1].times.to_a
+    kit = GraphKit.quick_create([x, t, mat])
+    kit.gp.view = "map"
+    kit.gp.palette = "rgb 23,28,3"
+    kit.data[0].gp.with = "pm3d"
+    kit
+  end
+end
+def real_space_2d_graphkit(options)
+  t = options[:t]
+  raise "Please supply :t" unless t
+  Dir.chdir(@directory) do
+    vec = openncfile{|f| f.var(options[:signal]).get('start'=>[0,t], 'end'=>[-1,t])} 
+    mat = GSL::Matrix.alloc(vec.size, 2)
+    for i in 0...vec.size
+      mat[i,0] = mat[i,1] = vec[i]
+    end
+    shape = mat.shape
+    p 'shape', mat.shape
+    x = shape[0].times.to_a
+    t = shape[1].times.to_a
+    kit = GraphKit.quick_create([x, t, mat])
+    kit.gp.view = "map"
+    kit.gp.palette = "rgb 23,28,3"
+    kit.data[0].gp.with = "pm3d"
+    kit
+  end
+end
+def waveandparticles_graphkit(options)
+  kit = GraphKit::MultiKit.new([
+    asquared2d_graphkit(options),
+    dist_fn_graphkit(options)
+  ])
+  kit[0].gp.size = "1.0,0.3"
+  kit[0].gp.origin = "0.0,0.7"
+  kit[1].gp.size = "1.0,0.9"
+  kit[1].gp.origin = "0.0,-0.1"
+  kit[1].gp.cbrange = "[0:]"
+  kit.each do |k|
+    k.key="off"
+    k.xlabel=nil
+    k.ylabel=nil
+    k.gp.xtics = "unset"
+    k.gp.ytics = "unset"
+    k.title = nil
+  end
+  kit
+end
+def vspace_dist_fn_graphkit(options)
+  kit = dist_fn_graphkit(options)
+  mat = kit.data[0].z.data
+  pvec = GSL::Vector.alloc(mat.shape[1])
+  pvec = 0.0
+  for i in 0...mat.shape[0]
+    pvec = pvec + mat.row(i)
+  end
+  kit2 = GraphKit.quick_create([kit.data[0].y.data, pvec])
+  kit2.data[0].gp.with = "lp"
+  kit2.gp.logscale = "y"
+  kit2
+end
+def dist_fn_graphkit(options)
+  t = options[:t]
+  p = options[:particle]
+  raise "Please supply :t" unless t
+  raise "Please supply :particle" unless p
+  mat = openncfile do |f| 
+    m = GSL::Matrix.alloc(f.dim("x_finest").length, f.dim("p_finest").length)
+    nlevels = f.dim("level").length
+    nlevels.times.to_a.reverse.each do |l|
+    #[2].each do |l|
+      factor = (@r||2)**l 
+      # NB the Ruby netCDF interface is (very annoyingly) written in column major (Fortran) style
+      nrectangles = f.var("level_rnum").get('index'=> [l,p,t])[0]
+      nrectangles.times do |r|
+        urid = f.var('urid').get('index'=>[r,l,p,t])[0]
+        md = f.var('rectangle_metadata').get('start'=>[0,0,urid], 'end'=>[-1,-1,urid])[true,true,0]
+        x_indices = f.var("integer_blob_data").get('start'=>[md[0,0]], 'end'=>[md[1,0]])
+        p_indices = f.var("integer_blob_data").get('start'=>[md[0,1]], 'end'=>[md[1,1]])
+        fdata = f.var("double_blob_data").get('start'=>[md[0,2]], 'end'=>[md[1,2]])
+        p_size = md[1,1] - md[0,1] + 1
+        x_indices.to_a.each_with_index do |ixglobal,ixrec|
+          p_indices.to_a.each_with_index do |ipglobal,iprec|
+            index = ixrec*p_size + iprec
+            #ep ["index", index, "fsize", md[1,2]-md[0,2]+1, 'ix', ixrec, 'ip', iprec, 'p_size', p_size, 'level', l, 'ixglobal', ixglobal, 'factor', factor]
+            for i in 0...factor
+              for j in 0...factor
+                m[ixglobal*factor+i,ipglobal*factor+j] = fdata[index]
+              end 
+            end
+          end
+        end
+      end
+    end
+    m
+  end
+  #mat = mat.log if (options[:log])
+  shape = mat.shape
+  p 'shape', mat.shape
+  x = shape[0].times.to_a.reverse
+  t = shape[1].times.to_a.reverse
+  kit = GraphKit.quick_create([x, t, mat])
+  #kit.live = true
+  kit.gp.view = "map"
+  kit.gp.palette = "rgb 23,28,3"
+  kit.data[0].gp.with = "pm3d"
+  kit
+end
  # Override CodeRunner for 0-based# Override CodeRunner for 0-based# Override CodeRunner for 0-based  
 def input_file_text
 	text = input_file_header
