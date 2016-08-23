@@ -250,6 +250,15 @@ end
 def asquared_graphkit(options)
   real_space_graphkit(signal: 'asquared')
 end
+def efieldlong_graphkit(options)
+  real_space_graphkit(signal: 'Efieldlong')
+end
+def ey_graphkit(options)
+  real_space_graphkit(signal: 'Ey')
+end
+def charge_graphkit(options)
+  real_space_graphkit(options.dup.absorb(signal: 'charge'))
+end
 def asquared2d_graphkit(options)
   real_space_2d_graphkit(options.dup.absorb(signal: 'asquared'))
 end
@@ -263,7 +272,12 @@ def openncfile
 end
 def real_space_graphkit(options)
   Dir.chdir(@directory) do
-    mat = openncfile{|f| f.var(options[:signal]).get} 
+    if pt = options[:particle]
+      mat = openncfile{|f| f.var(options[:signal]).get('start'=>[0,pt,0], 'end'=>[-1,pt,-1])}[true,0,true]
+    else
+      raise "Please specify particle" if ['charge'].include? options[:signal]
+      mat = openncfile{|f| f.var(options[:signal]).get} 
+    end
     shape = mat.shape
     p 'shape', mat.shape
     x = shape[0].times.to_a
